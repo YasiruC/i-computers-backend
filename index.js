@@ -2,7 +2,6 @@ import express from "express";
 import dns from 'dns';// dns lib eka import 
 import mongoose from "mongoose";
 import userRouter from "./routers/userRouter.js";
-import studentRouter from "./routers/studentRouter.js";
 import authenticateUser from "./middlewares/authentication.js";
 import productRouter from "./routers/productRouter.js";
 
@@ -24,8 +23,6 @@ app.use(express.json());
 
 app.use(authenticateUser);
 
-
-app.use("/student",studentRouter);
 app.use("/users",userRouter);
 app.use("/product",productRouter);
 
