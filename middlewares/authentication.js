@@ -1,4 +1,7 @@
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export default function authenticateUser(req, res, next){
     const header = req.header("Authorization");
@@ -6,7 +9,7 @@ export default function authenticateUser(req, res, next){
     if(header != null){
         const token = header.replace("Bearer ","");//use token
 
-        jwt.verify(token,"I-ComputerMern", 
+        jwt.verify(token, process.env.JWT_SECRET_KEY , 
             (error,decoded)=>{
                 if(decoded == null){
                     res.json({
