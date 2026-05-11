@@ -54,7 +54,7 @@ export async function getAllProducts(req,res){
             const products = await Product.find();
             res.json(products);
         }else{
-            const products = await Product.find({ isAvailble : true });
+            const products = await Product.find({ isAvailable : true });
             res.json(products);
         }
     }catch(error){
@@ -109,7 +109,7 @@ export async function updateProduct(req,res){
             model : req.body.model,
             category : req.body.category,
             stock : req.body.stock,
-            isAvailble : req.body.isAvailble
+            isAvailable : req.body.isAvailable
         });
 
         res.json({
@@ -132,7 +132,7 @@ export async function getProductById(req,res){
                 message : "Product not found."
             });
         }else{
-            if(product.isAvailble){
+            if(product.isAvailable){
                 res.json(product);
             }else{
                 if(isAdmin(req)){

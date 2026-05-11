@@ -52,7 +52,8 @@ export function loginUser(req,res){
 
                     const token = jwt.sign(payload, process.env.JWT_SECRET_KEY ,{ expiresIn : "48h" });//create token
                     res.json({
-                        token : token
+                        token : token,
+                        isAdmin : user.isAdmin
                     });
                 }else{
                     res.status(401).json({
