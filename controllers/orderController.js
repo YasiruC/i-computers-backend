@@ -1,5 +1,6 @@
 import Order from "../models/order.js";
 import Product from "../models/product.js";
+import { isAdmin } from "./userController.js";
 
 export async function createOrder(req,res){
     const user = req.user;
@@ -37,21 +38,19 @@ export async function createOrder(req,res){
 
     try {
         //genarete Order Id
-        const lastOrder = await Order.findOne().sort({ data : -1 });
-
-        if(lastOrder.orderId != null){
+        const lastOrder = await Order.findOne().sort({ date : -1 });
+        console.log(lastOrder.orderId);
+        if(lastOrder != null){
             const newOrderId = parseInt(lastOrder.orderId.replace("ORD","")) + 1; //if lastOrder.orderId is "ORD000000039" ,now newOrderId is 40
-            const newOrderIdString = newOrderId.padStart(8, "0"); //"00000040"
-            orderData.orderId = "ORD0" + newOrderIdString; //"ORD00000040"
+            const newOrderIdString = newOrderId.toString().padStart(8, "0"); //"00000040"
+            orderData.orderId = "ORD" + newOrderIdString; //"ORD00000040"
         }
-
         //check items array, product is valied and set orderData 
         for(let i = 0;i < req.body.items.length;i++){
+            
             const product = await Product.findOne({ productId : req.body.items[i].productId });
-
             // item have productId and quantity only. Product details get database
-
-            if(product == null || !product.isAvailable || product.stock <= 0){
+            if(product == null || !product.isAvailable || product.stock < 0){
                 res.status(400).json({
                     message : "Product with productId " + req.body.items[i].productId + "not found. Please place your order without this product."
                 });
@@ -100,8 +99,51 @@ export async function createOrder(req,res){
         });
 
     } catch (error) {
+        console.log(error)
         res.status(500).json({
             message : "Error creating order"
         });
     }
+}
+
+export async function getOrder(req,res) {
+    try{
+        if(req.user == null){
+           res.status(401).json({
+                message : "You need to logged in to view your orders"
+            });
+            return;
+        }
+
+        const pageSize = parseInt(req.params.pageSize || "10");
+        const pageNum = parseInt(req.params.pageNum || "1");
+
+        if(req.user.isAdmin){
+            const ordersCount = await Product.countDocuments();
+            const totalPages = Math.ceil(ordersCount / pageSize);
+            
+            const orders = await Order.find().sort({ date : -1 }).skip( (pageNum - 1) * pageSize).limit(pageSize);
+            res.status(200).json({
+                orders : orders,
+                ordersCount : ordersCount,
+                totalPages : totalPages
+            });
+        }else{
+            const ordersCount = await Product.countDocuments({ email : req.user.email });
+            const totalPages = Math.ceil(ordersCount / pageNum);
+
+            const orders = await Order.find({ email : req.user.email }).sort({ date : -1 }).skip((pageNum - 1) * pageSize).limit(pageSize);
+            res.status(200).json({
+                orders : orders,
+                ordersCount : ordersCount,
+                totalPages : totalPages
+            });
+        }
+
+    }catch(error){
+        res.status(500).json({
+            message : "Error fetching orders"
+        });
+    }
+
 }
