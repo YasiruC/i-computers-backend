@@ -39,7 +39,6 @@ export async function createOrder(req,res){
     try {
         //genarete Order Id
         const lastOrder = await Order.findOne().sort({ date : -1 });
-        console.log(lastOrder.orderId);
         if(lastOrder != null){
             const newOrderId = parseInt(lastOrder.orderId.replace("ORD","")) + 1; //if lastOrder.orderId is "ORD000000039" ,now newOrderId is 40
             const newOrderIdString = newOrderId.toString().padStart(8, "0"); //"00000040"
@@ -119,7 +118,7 @@ export async function getOrder(req,res) {
         const pageNum = parseInt(req.params.pageNum || "1");
 
         if(req.user.isAdmin){
-            const ordersCount = await Product.countDocuments();
+            const ordersCount = await Order.countDocuments();
             const totalPages = Math.ceil(ordersCount / pageSize);
             
             const orders = await Order.find().sort({ date : -1 }).skip( (pageNum - 1) * pageSize).limit(pageSize);
@@ -129,8 +128,8 @@ export async function getOrder(req,res) {
                 totalPages : totalPages
             });
         }else{
-            const ordersCount = await Product.countDocuments({ email : req.user.email });
-            const totalPages = Math.ceil(ordersCount / pageNum);
+            const ordersCount = await Order.countDocuments({ email : req.user.email });
+            const totalPages = Math.ceil(ordersCount / pageSize);
 
             const orders = await Order.find({ email : req.user.email }).sort({ date : -1 }).skip((pageNum - 1) * pageSize).limit(pageSize);
             res.status(200).json({
@@ -146,4 +145,38 @@ export async function getOrder(req,res) {
         });
     }
 
+}
+
+export async function updateNoteAndStatus(req,res) {
+    if(req.user == null){
+        res.status(401).json({
+            message : "You need to logged in to update order"
+        });
+        return;
+    }
+
+    if(!req.user.isAdmin){
+        res.status(401).json({
+            message : "Update can only Admin"
+        });
+        return;
+    }else{
+        try{
+            await Order.updateOne({ orderId : req.params.orderId },
+                {
+                    notes : req.body.notes,
+                    orderState : req.body.status
+                }
+            );
+
+            res.status(201).json({
+                message : "Order status and notes update successfully"
+            });
+        }catch(error){
+            console.log(error)
+            res.status(500).json({
+                message : "Error fetching Updating Order"
+            });
+        }
+    }
 }
