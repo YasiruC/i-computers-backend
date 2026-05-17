@@ -2,6 +2,7 @@ import User from "../models/user.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import axios from "axios";
 
 dotenv.config();
 
@@ -63,10 +64,72 @@ export function loginUser(req,res){
             }
         }).catch((err)=>{
             res.status(500).json({
-                message: "Student Save Unsuccessful!",
+                message: "User Login something went wrong!",
                 error: err.message
             });
         });
+}
+
+export async function googleLogin(req,res){
+    const accessToken = req.body.accessToken;
+    // Verify the access token and get user information from Google API
+    try{
+        const googleResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo?", {
+            headers : { authorization : `Bearer ${accessToken}` }
+        });
+        
+        const user = await User.findOne({ email : googleResponse.data.email });
+        if(user){
+            const payload = {
+                email : user.email,
+                firstName : user.firstName,
+                lastName : user.lastName,
+                isAdmin : user.isAdmin,
+                isBlocked : user.isBlocked,
+                isEmailVerified : user.isEmailVerified,
+                image : user.image
+            }
+
+            const token = jwt.sign(payload, process.env.JWT_SECRET_KEY ,{ expiresIn : "48h" });//create token
+            res.json({
+                token : token,
+                isAdmin : user.isAdmin
+            });
+        }else{
+            const newUser = new User({
+                email : googleResponse.data.email,
+                firstName : googleResponse.data.given_name,
+                lastName : googleResponse.data.family_name != null ? googleResponse.data.family_name : " ",
+                password : "google-login",
+                image : googleResponse.data.picture,
+                isEmailVerified : googleResponse.data.email_verified
+            });
+
+            await newUser.save();
+
+            const payload = {
+                email : googleResponse.data.email,
+                firstName : googleResponse.data.given_name,
+                lastName : googleResponse.data.family_name,
+                isAdmin : false,
+                isBlocked : false,
+                isEmailVerified : googleResponse.data.email_verified,
+                image : googleResponse.data.picture
+            }
+
+            const token = jwt.sign(payload, process.env.JWT_SECRET_KEY ,{ expiresIn : "48h" });//create token
+            res.json({
+                token : token,
+                isAdmin : false
+            });
+        }
+    }catch(error){
+        console.log(error);
+        res.status(500).json({
+            message : "Google authentication failed. Please try again.",
+            error : error.message
+        });
+    }
 }
 
 export function isAdmin(req,res){
