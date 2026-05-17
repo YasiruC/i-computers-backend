@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
+import OTP from "../models/otp.js";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -77,7 +79,7 @@ export async function googleLogin(req,res){
         const googleResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo?", {
             headers : { authorization : `Bearer ${accessToken}` }
         });
-        
+
         const user = await User.findOne({ email : googleResponse.data.email });
         if(user){
             const payload = {
@@ -242,4 +244,113 @@ export async function updatePassword(req,res){
         });
     }
 
+}
+
+export async function sendOTP(req,res){
+    const userEmail = req.body.email;
+    try{
+        const user = await User.findOne({ email : userEmail });
+
+        if(!user){
+            res.status(404).json({
+                message : "User not found with this email."
+            });
+            return;
+        }
+        // delete OTP for the email if exists
+        await OTP.deleteOne({email : userEmail });
+        //OTP genarate and save it in database
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        const newOTP = new OTP({
+            email : userEmail,
+            otp : otpCode
+        });
+        await newOTP.save();
+        // send OTP to user email using nodemailer lib
+        // create transporter object with Gmail SMTP configuration(This is need for sending email using nodemailer lib connecting with Gmail SMTP server)
+        const transporter = nodemailer.createTransport({
+            service : "gmail",
+            host : "smtp.gmail.com",
+            port : 587,
+            secure : false,
+            auth : {
+                user : process.env.GMAIL_USER,
+                pass : process.env.GMAIL_APP_PASSWORD
+            }
+        });
+
+        const message = {
+            from : process.env.GMAIL_USER,
+            to : userEmail,
+            subject : "Password Reset OTP - I-Computer",
+            text : `Your OTP for password reset is ${otpCode}. It is valid for 10 minutes.`
+        };
+
+        await transporter.sendMail(message, (err, info)=>{
+            if(err){
+                res.status(500).json({
+                    message : "Error sending OTP email. Please try again.",
+                    error : err.message
+                });
+            }else{
+                res.json({
+                    message : "OTP sent to email successfully."
+                });
+            }
+        });
+    }catch(error){
+        res.status(500).json({
+            message : "Error sending OTP",
+            error : error.message
+        });
+    }
+}
+
+export async function verifyOTPAndResetPassword(req,res){
+    const otp = req.body.otp;
+    const email = req.body.email;
+    const newPassword = req.body.newPassword;
+
+    try{
+        const otpRecord = await OTP.findOne({ email : email });
+
+        if(!otpRecord){
+            res.status(400).json({
+                message : "Invalid OTP."
+            });
+            return;
+        }
+
+        if(otpRecord.otp !== otp){
+            res.status(400).json({
+                message : "Invalid OTP."
+            });
+            return;
+        }
+
+        const otpAge = (Date.now() - otpRecord.createdTime.getTime()) / (1000 * 60); // age in minutes
+
+        if(otpAge > 10){ // OTP valid for 10 minutes
+            await OTP.deleteOne({ email : email });
+            res.status(400).json({
+                message : "OTP has expired."
+            });
+            return;
+        }
+
+        const hashPassword = bcrypt.hashSync(newPassword, 10);
+        await User.findOneAndUpdate({ email : email }, { password : hashPassword });
+        await   OTP.deleteOne({ email : email });
+
+        res.json({
+            message : "Password reset successfully."
+        });
+
+    }catch(error){  
+        res.status(500).json({
+            message : "Error resetting password",
+            error : error.message
+        });
+    }
 }
