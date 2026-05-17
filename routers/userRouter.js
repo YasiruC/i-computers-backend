@@ -3,7 +3,7 @@ import { createUser, getUserDetails, loginUser, updatePassword, updateUserDetail
 
 const userRouter = express.Router();
 
-userRouter.post("/",createUser);
+userRouter.post("/register",createUser);
 userRouter.post("/login",loginUser);
 userRouter.get("/profile",getUserDetails);
 userRouter.put("/",updateUserDetails);
