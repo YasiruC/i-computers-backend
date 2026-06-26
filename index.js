@@ -24,7 +24,7 @@ mongoose.connect(mongodbURL).then(()=>{
     }
 );
 
-app.use(cors({ origin : ["http://localhost:5173" , "https://i-computer-frontend-eosin.vercel.app/"]}));//{ origin : ["http://localhost:5173" , "http://10.11.98.250:5173" , "https://i-computer-frontend-eosin.vercel.app/"]}
+app.use(cors({ origin : ["http://localhost:5173" , "https://i-computer-frontend-eosin.vercel.app"]}));//{ origin : ["http://localhost:5173" , "http://10.11.98.250:5173" , "https://i-computer-frontend-eosin.vercel.app/"]}
 app.use(express.json());
 app.use(authenticateUser);
 
